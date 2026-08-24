@@ -1,5 +1,5 @@
 -- =========================================
--- ULTIMATE ESP V3 (FF Style Tracer, Colors, FPS, Transparent UI)
+-- ESP CŨ + FPS + HITBOX TỰ ĐỘNG (KHI ĐÁNH)
 -- =========================================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -9,80 +9,55 @@ local CoreGui = game:GetService("CoreGui")
 local lp = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 
--- =========================================
--- CÀI ĐẶT & MÀU SẮC
--- =========================================
 local Settings = {
     ESP_Enabled = true,
     Show_Box = true,
-    Show_Tracer = true, -- Đường kẻ trên đầu (FF Style)
+    Show_Tracer = true,
     Show_Name = true,
     Show_Health = true,
-    Show_Head = true,
-    -- Màu sắc (Mặc định)
     Box_Color = Color3.fromRGB(0, 255, 0),
-    Tracer_Color = Color3.fromRGB(255, 255, 255),
+    Tracer_Color = Color3.fromRGB(255, 0, 0),
     Name_Color = Color3.fromRGB(255, 255, 255),
-    Head_Color = Color3.fromRGB(255, 215, 0)
+    
+    -- Cài đặt Hitbox
+    HitBoxEnabled = false, -- Bật/Tắt chế độ
+    HitBoxSize = 4.0
 }
 
 local ESP_Objects = {}
 
 -- =========================================
--- TẠO UI (TRONG SUỐT, NEON, NHIỀU TAB)
+-- UI CŨ (MENU DỌC)
 -- =========================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "BAODZ_ESP_UI"
+ScreenGui.Name = "Old_ESP_UI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = CoreGui
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 280, 0, 360)
-MainFrame.Position = UDim2.new(0.5, -140, 0.5, -180)
-MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-MainFrame.BackgroundTransparency = 0.25 -- Trong suốt
+MainFrame.Size = UDim2.new(0, 220, 0, 320)
+MainFrame.Position = UDim2.new(0.5, -110, 0.5, -160)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
 
--- Thêm viền Neon
-local UIStroke = Instance.new("UIStroke")
-UIStroke.Color = Color3.fromRGB(0, 255, 255)
-UIStroke.Thickness = 1.5
-UIStroke.Transparency = 0.5
-UIStroke.Parent = MainFrame
-
 local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 12)
+UICorner.CornerRadius = UDim.new(0, 10)
 UICorner.Parent = MainFrame
 
--- Thanh tiêu đề với Gradient
 local TitleBar = Instance.new("Frame")
 TitleBar.Size = UDim2.new(1, 0, 0, 35)
-TitleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-TitleBar.BackgroundTransparency = 0.2
-TitleBar.BorderSizePixel = 0
+TitleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
 TitleBar.Parent = MainFrame
-
-local TitleGradient = Instance.new("UIGradient")
-TitleGradient.Rotation = 90
-TitleGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 255)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 0, 255))
-})
-TitleGradient.Parent = TitleBar
-
-local TitleCorner = Instance.new("UICorner")
-TitleCorner.CornerRadius = UDim.new(0, 12)
-TitleCorner.Parent = TitleBar
 
 local TitleText = Instance.new("TextLabel")
 TitleText.Size = UDim2.new(1, -40, 1, 0)
 TitleText.Position = UDim2.new(0, 10, 0, 0)
 TitleText.BackgroundTransparency = 1
-TitleText.Text = "BAODZ ESP MENU v1"
+TitleText.Text = "BAODZ MOD"
 TitleText.TextColor3 = Color3.fromRGB(255, 255, 255)
 TitleText.Font = Enum.Font.GothamBold
-TitleText.TextSize = 15
+TitleText.TextSize = 14
 TitleText.TextXAlignment = Enum.TextXAlignment.Left
 TitleText.Parent = TitleBar
 
@@ -96,10 +71,6 @@ MinimizeBtn.Font = Enum.Font.GothamBold
 MinimizeBtn.TextSize = 14
 MinimizeBtn.Parent = TitleBar
 
-local MinimizeCorner = Instance.new("UICorner")
-MinimizeCorner.CornerRadius = UDim.new(0, 6)
-MinimizeCorner.Parent = MinimizeBtn
-
 local RestoreBtn = Instance.new("TextButton")
 RestoreBtn.Size = UDim2.new(0, 40, 0, 40)
 RestoreBtn.Position = UDim2.new(0.5, -20, 0.5, -20)
@@ -111,129 +82,55 @@ RestoreBtn.TextSize = 20
 RestoreBtn.Visible = false
 RestoreBtn.Parent = ScreenGui
 
-local RestoreCorner = Instance.new("UICorner")
-RestoreCorner.CornerRadius = UDim.new(0, 50)
-RestoreCorner.Parent = RestoreBtn
-
--- =========================================
--- TẠO TAB (ESP / SETTINGS / TARGET)
--- =========================================
-local TabBar = Instance.new("Frame")
-TabBar.Size = UDim2.new(1, 0, 0, 30)
-TabBar.Position = UDim2.new(0, 0, 0, 35)
-TabBar.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-TabBar.BackgroundTransparency = 0.2
-TabBar.BorderSizePixel = 0
-TabBar.Parent = MainFrame
-
--- Hàm tạo tab button
-local function createTab(tabName, yPos, targetFrame)
+local function createToggle(parent, text, settingTable, key, yPos)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 80, 0, 25)
-    btn.Position = UDim2.new(0, 10 + yPos * 90, 0, 2)
-    btn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-    btn.BackgroundTransparency = 0.1
-    btn.Text = tabName
+    btn.Size = UDim2.new(1, -20, 0, 25)
+    btn.Position = UDim2.new(0, 10, 0, yPos)
+    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    btn.Text = text .. "  [" .. (settingTable[key] and "ON" or "OFF") .. "]"
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 12
-    btn.Parent = TabBar
+    btn.Font = Enum.Font.Gotham
+    btn.TextSize = 13
+    btn.Parent = parent
 
     local Corner = Instance.new("UICorner")
-    Corner.CornerRadius = UDim.new(0, 5)
+    Corner.CornerRadius = UDim.new(0, 6)
     Corner.Parent = btn
 
-    local function switchTab()
-        for _, frame in ipairs(MainFrame:GetChildren()) do
-            if frame:IsA("Frame") and frame.Name == "TabContent" then
-                frame.Visible = false
-            end
-        end
-        targetFrame.Visible = true
-        for _, b in ipairs(TabBar:GetChildren()) do
-            if b:IsA("TextButton") then
-                b.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-            end
-        end
-        btn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
-    end
-
-    btn.MouseButton1Click:Connect(switchTab)
-
-    return btn
+    btn.MouseButton1Click:Connect(function()
+        settingTable[key] = not settingTable[key]
+        btn.Text = text .. "  [" .. (settingTable[key] and "ON" or "OFF") .. "]"
+        btn.BackgroundColor3 = settingTable[key] and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(40, 40, 50)
+    end)
 end
 
-local ESPTab = Instance.new("Frame")
-ESPTab.Name = "TabContent"
-ESPTab.Size = UDim2.new(1, 0, 1, -65)
-ESPTab.Position = UDim2.new(0, 0, 0, 65)
-ESPTab.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-ESPTab.BackgroundTransparency = 0.2
-ESPTab.BorderSizePixel = 0
-ESPTab.Parent = MainFrame
-
-local SettingsTab = Instance.new("Frame")
-SettingsTab.Name = "TabContent"
-SettingsTab.Size = UDim2.new(1, 0, 1, -65)
-SettingsTab.Position = UDim2.new(0, 0, 0, 65)
-SettingsTab.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-SettingsTab.BackgroundTransparency = 0.2
-SettingsTab.BorderSizePixel = 0
-SettingsTab.Visible = false
-SettingsTab.Parent = MainFrame
-
-local TargetTab = Instance.new("Frame")
-TargetTab.Name = "TabContent"
-TargetTab.Size = UDim2.new(1, 0, 1, -65)
-TargetTab.Position = UDim2.new(0, 0, 0, 65)
-TargetTab.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-TargetTab.BackgroundTransparency = 0.2
-TargetTab.BorderSizePixel = 0
-TargetTab.Visible = false
-TargetTab.Parent = MainFrame
-
-createTab("ESP", 0, ESPTab)
-createTab("Settings", 1, SettingsTab)
-createTab("Target", 2, TargetTab)
+createToggle(MainFrame, "ESP Tổng", Settings, "ESP_Enabled", 45)
+createToggle(MainFrame, "Khung (Box)", Settings, "Show_Box", 80)
+createToggle(MainFrame, "Đường kẻ", Settings, "Show_Tracer", 115)
+createToggle(MainFrame, "Tên", Settings, "Show_Name", 150)
+createToggle(MainFrame, "Máu", Settings, "Show_Health", 185)
 
 -- =========================================
--- ĐẾM SỐ ĐỊCH & FPS (HOẠT ĐỘNG THẬT)
+-- FPS Ở GÓC MÀN HÌNH
 -- =========================================
-local InfoBar = Instance.new("Frame")
-InfoBar.Size = UDim2.new(1, -20, 0, 25)
-InfoBar.Position = UDim2.new(0, 10, 0, 320)
-InfoBar.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-InfoBar.BackgroundTransparency = 0.2
-InfoBar.BorderSizePixel = 0
-InfoBar.Parent = MainFrame
-
-local InfoCorner = Instance.new("UICorner")
-InfoCorner.CornerRadius = UDim.new(0, 6)
-InfoCorner.Parent = InfoBar
-
-local PlayerCounter = Instance.new("TextLabel")
-PlayerCounter.Size = UDim2.new(0.5, 0, 1, 0)
-PlayerCounter.Position = UDim2.new(0, 5, 0, 0)
-PlayerCounter.BackgroundTransparency = 1
-PlayerCounter.Text = "Players: 0"
-PlayerCounter.TextColor3 = Color3.fromRGB(255, 255, 0)
-PlayerCounter.Font = Enum.Font.GothamBold
-PlayerCounter.TextSize = 13
-PlayerCounter.TextXAlignment = Enum.TextXAlignment.Left
-PlayerCounter.Parent = InfoBar
+local FPSFrame = Instance.new("Frame")
+FPSFrame.Size = UDim2.new(0, 80, 0, 25)
+FPSFrame.Position = UDim2.new(1, -90, 0, 10)
+FPSFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+FPSFrame.BackgroundTransparency = 0.4
+FPSFrame.BorderSizePixel = 0
+FPSFrame.Parent = ScreenGui
 
 local FPSLabel = Instance.new("TextLabel")
-FPSLabel.Size = UDim2.new(0.5, 0, 1, 0)
-FPSLabel.Position = UDim2.new(0.5, 0, 0, 0)
+FPSLabel.Size = UDim2.new(1, 0, 1, 0)
 FPSLabel.BackgroundTransparency = 1
 FPSLabel.Text = "FPS: 60"
 FPSLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
 FPSLabel.Font = Enum.Font.GothamBold
 FPSLabel.TextSize = 13
-FPSLabel.TextXAlignment = Enum.TextXAlignment.Right
-FPSLabel.Parent = InfoBar
+FPSLabel.TextXAlignment = Enum.TextXAlignment.Center
+FPSLabel.Parent = FPSFrame
 
--- Logic tính FPS
 local lastTime = tick()
 local frameCount = 0
 local currentFPS = 0
@@ -248,211 +145,120 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- =========================================
--- BẢNG CHỌN MÀU (COLOR PALETTE)
+-- LOGIC HITBOX TỰ ĐỘNG (KHI ĐÁNH - NHẢ TAY - THU)
 -- =========================================
-local function createColorButton(parent, color, text, yPos, settingKey)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 40, 0, 25)
-    btn.Position = UDim2.new(0, 10 + yPos * 50, 0, 10)
-    btn.BackgroundColor3 = color
-    btn.Text = text
-    btn.TextColor3 = Color3.fromRGB(0, 0, 0)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 10
-    btn.Parent = parent
-    
-    local Corner = Instance.new("UICorner")
-    Corner.CornerRadius = UDim.new(0, 5)
-    Corner.Parent = btn
+local priorityParts = { "Head", "HumanoidRootPart", "UpperTorso", "Torso", "LowerTorso" }
+local originalSizes = {}
+local isAttacking = false -- Cờ kiểm tra đang đánh
 
-    btn.MouseButton1Click:Connect(function()
-        Settings[settingKey] = color
-        btn.BackgroundColor3 = color
-    end)
+local function saveOriginalSizes(model)
+    for _, part in ipairs(model:GetDescendants()) do
+        if part:IsA("BasePart") then
+            originalSizes[part] = part.Size
+        end
+    end
 end
 
--- Tab Settings: Chọn màu Tracer
-local TracerColorTitle = Instance.new("TextLabel")
-TracerColorTitle.Size = UDim2.new(1, -20, 0, 20)
-TracerColorTitle.Position = UDim2.new(0, 10, 0, 10)
-TracerColorTitle.BackgroundTransparency = 1
-TracerColorTitle.Text = "Màu Đường Kẻ (Tracer):"
-TracerColorTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-TracerColorTitle.Font = Enum.Font.GothamBold
-TracerColorTitle.TextSize = 12
-TracerColorTitle.TextXAlignment = Enum.TextXAlignment.Left
-TracerColorTitle.Parent = SettingsTab
-
-createColorButton(SettingsTab, Color3.fromRGB(255, 0, 0), "Đỏ", 0, "Tracer_Color")
-createColorButton(SettingsTab, Color3.fromRGB(0, 255, 0), "Xanh", 1, "Tracer_Color")
-createColorButton(SettingsTab, Color3.fromRGB(0, 255, 255), "Cyan", 2, "Tracer_Color")
-createColorButton(SettingsTab, Color3.fromRGB(255, 255, 0), "Vàng", 3, "Tracer_Color")
-createColorButton(SettingsTab, Color3.fromRGB(255, 0, 255), "Tím", 4, "Tracer_Color")
-createColorButton(SettingsTab, Color3.fromRGB(255, 255, 255), "Trắng", 5, "Tracer_Color")
-
--- Tab Settings: Chọn màu Box
-local BoxColorTitle = Instance.new("TextLabel")
-BoxColorTitle.Size = UDim2.new(1, -20, 0, 20)
-BoxColorTitle.Position = UDim2.new(0, 10, 0, 55)
-BoxColorTitle.BackgroundTransparency = 1
-BoxColorTitle.Text = "Màu Khung (Box):"
-BoxColorTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-BoxColorTitle.Font = Enum.Font.GothamBold
-BoxColorTitle.TextSize = 12
-BoxColorTitle.TextXAlignment = Enum.TextXAlignment.Left
-BoxColorTitle.Parent = SettingsTab
-
-createColorButton(SettingsTab, Color3.fromRGB(255, 0, 0), "Đỏ", 0, "Box_Color")
-createColorButton(SettingsTab, Color3.fromRGB(0, 255, 0), "Xanh", 1, "Box_Color")
-createColorButton(SettingsTab, Color3.fromRGB(0, 255, 255), "Cyan", 2, "Box_Color")
-createColorButton(SettingsTab, Color3.fromRGB(255, 255, 0), "Vàng", 3, "Box_Color")
-createColorButton(SettingsTab, Color3.fromRGB(255, 255, 255), "Trắng", 4, "Box_Color")
-
--- Nút Reset UI
-local ResetBtn = Instance.new("TextButton")
-ResetBtn.Size = UDim2.new(1, -20, 0, 25)
-ResetBtn.Position = UDim2.new(0, 10, 0, 100)
-ResetBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-ResetBtn.Text = "Reset UI về giữa"
-ResetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ResetBtn.Font = Enum.Font.GothamBold
-ResetBtn.TextSize = 12
-ResetBtn.Parent = SettingsTab
-
-local ResetCorner = Instance.new("UICorner")
-ResetCorner.CornerRadius = UDim.new(0, 6)
-ResetCorner.Parent = ResetBtn
-
-ResetBtn.MouseButton1Click:Connect(function()
-    MainFrame.Position = UDim2.new(0.5, -140, 0.5, -180)
-end)
-
--- =========================================
--- TẠO TOGGLE TRONG TAB ESP
--- =========================================
-local function createToggle(parentFrame, text, settingTable, settingKey, yPos)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -20, 0, 25)
-    btn.Position = UDim2.new(0, 10, 0, yPos)
-    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-    btn.Text = text .. "  [" .. (settingTable[settingKey] and "ON" or "OFF") .. "]"
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.Gotham
-    btn.TextSize = 13
-    btn.Parent = parentFrame
-
-    local Corner = Instance.new("UICorner")
-    Corner.CornerRadius = UDim.new(0, 6)
-    Corner.Parent = btn
-
-    btn.MouseButton1Click:Connect(function()
-        settingTable[settingKey] = not settingTable[settingKey]
-        btn.Text = text .. "  [" .. (settingTable[settingKey] and "ON" or "OFF") .. "]"
-        btn.BackgroundColor3 = settingTable[settingKey] and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(40, 40, 50)
-    end)
-
-    return btn
+local function expandParts(model)
+    for _, partName in ipairs(priorityParts) do
+        local part = model:FindFirstChild(partName)
+        if part and part:IsA("BasePart") then
+            part.Size = Vector3.new(Settings.HitBoxSize, Settings.HitBoxSize, Settings.HitBoxSize)
+        end
+    end
 end
 
-createToggle(ESPTab, "ESP Tổng", Settings, "ESP_Enabled", 10)
-createToggle(ESPTab, "Khung (Box)", Settings, "Show_Box", 45)
-createToggle(ESPTab, "Đường kẻ (Top)", Settings, "Show_Tracer", 80)
-createToggle(ESPTab, "Tên (Name)", Settings, "Show_Name", 115)
-createToggle(ESPTab, "Máu (Health)", Settings, "Show_Health", 150)
-createToggle(ESPTab, "Đầu (Head)", Settings, "Show_Head", 185)
+local function restoreParts(model)
+    for _, part in ipairs(model:GetDescendants()) do
+        if originalSizes[part] then
+            part.Size = originalSizes[part]
+            originalSizes[part] = nil
+        end
+    end
+end
 
--- =========================================
--- KÉO THẢ UI
--- =========================================
-local dragging = false
-local dragInput, mousePos, framePos
-
-TitleBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        mousePos = input.Position
-        framePos = MainFrame.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
+local function ExpandAll()
+    if not Settings.HitBoxEnabled or isAttacking then
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= lp and plr.Character then
+                saveOriginalSizes(plr.Character)
+                expandParts(plr.Character)
             end
-        end)
+        end
+    end
+end
+
+local function RestoreAll()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr.Character then
+            restoreParts(plr.Character)
+        end
+    end
+end
+
+-- Nút bật/tắt Hitbox Tự động trong menu
+local HitboxToggleBtn = Instance.new("TextButton")
+HitboxToggleBtn.Size = UDim2.new(1, -20, 0, 25)
+HitboxToggleBtn.Position = UDim2.new(0, 10, 0, 220)
+HitboxToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+HitboxToggleBtn.Text = "Hitbox Tự Động [OFF]"
+HitboxToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+HitboxToggleBtn.Font = Enum.Font.Gotham
+HitboxToggleBtn.TextSize = 13
+HitboxToggleBtn.Parent = MainFrame
+
+local HitboxCorner = Instance.new("UICorner")
+HitboxCorner.CornerRadius = UDim.new(0, 6)
+HitboxCorner.Parent = HitboxToggleBtn
+
+HitboxToggleBtn.MouseButton1Click:Connect(function()
+    Settings.HitBoxEnabled = not Settings.HitBoxEnabled
+    if Settings.HitBoxEnabled then
+        HitboxToggleBtn.Text = "Hitbox Tự Động [ON]"
+        HitboxToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+    else
+        HitboxToggleBtn.Text = "Hitbox Tự Động [OFF]"
+        HitboxToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+        RestoreAll() -- Tắt thì khôi phục ngay
     end
 end)
 
-TitleBar.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
+-- Khi bắt đầu "Đánh" (Bấm chuột / chạm màn hình)
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if Settings.HitBoxEnabled then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isAttacking = true
+            ExpandAll()
+        end
     end
 end)
 
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        local delta = input.Position - mousePos
-        MainFrame.Position = UDim2.new(framePos.X.Scale, framePos.X.Offset + delta.X, framePos.Y.Scale, framePos.Y.Offset + delta.Y)
-    end
-end)
-
--- Kéo thả nút Restore
-local restoreDragging = false
-local restoreDragInput, restoreMousePos, restoreFramePos
-
-RestoreBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        restoreDragging = true
-        restoreMousePos = input.Position
-        restoreFramePos = RestoreBtn.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                restoreDragging = false
-            end
-        end)
-    end
-end)
-
-RestoreBtn.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        restoreDragInput = input
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if input == restoreDragInput and restoreDragging then
-        local delta = input.Position - restoreMousePos
-        RestoreBtn.Position = UDim2.new(restoreFramePos.X.Scale, restoreFramePos.X.Offset + delta.X, restoreFramePos.Y.Scale, restoreFramePos.Y.Offset + delta.Y)
+-- Khi nhả tay (Ngừng đánh) -> Tự động khôi phục
+UserInputService.InputEnded:Connect(function(input)
+    if Settings.HitBoxEnabled then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isAttacking = false
+            RestoreAll()
+        end
     end
 end)
 
 -- =========================================
--- ĐÓNG / MỞ UI
--- =========================================
-MinimizeBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible = false
-    RestoreBtn.Visible = true
-end)
-
-RestoreBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible = true
-    RestoreBtn.Visible = false
-end)
-
--- =========================================
--- LOGIC ESP (FIX LAG + TRACER TOP STYLE)
+-- LOGIC ESP
 -- =========================================
 local function CreateObjects()
     return {
         Box = Drawing.new("Square"),
         Tracer = Drawing.new("Line"),
         Name = Drawing.new("Text"),
-        Health = Drawing.new("Text"),
-        Head = Drawing.new("Circle")
+        Health = Drawing.new("Text")
     }
 end
 
 local function SetupESP(plr)
     if plr == lp then return end
-    local Objects = CreateObjects()
-    ESP_Objects[plr] = Objects
+    ESP_Objects[plr] = CreateObjects()
 
     plr.CharacterAdded:Connect(function()
         wait(1)
@@ -473,28 +279,18 @@ Players.PlayerRemoving:Connect(function(plr)
 end)
 
 -- =========================================
--- VÒNG LẶP RENDER ESP + FIX LAG
+-- VÒNG LẶP VẼ ESP
 -- =========================================
 RunService.RenderStepped:Connect(function()
-    -- Cập nhật số người chơi (Đếm địch)
-    local playerCount = 0
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= lp and plr.Character then
-            playerCount = playerCount + 1
-        end
-    end
-    PlayerCounter.Text = "Players: " .. playerCount
-
     for plr, Objects in pairs(ESP_Objects) do
         local char = plr.Character
-        
+
         if Settings.ESP_Enabled and char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Head") then
             local humanoid = char:FindFirstChildOfClass("Humanoid")
             local rootPos, onScreen = camera:WorldToViewportPoint(char.HumanoidRootPart.Position)
             local headPos = camera:WorldToViewportPoint(char.Head.Position)
 
             if onScreen then
-                -- BOX
                 if Settings.Show_Box then
                     local size = math.abs(headPos.Y - rootPos.Y)
                     Objects.Box.Size = Vector2.new(size / 2, size)
@@ -505,19 +301,17 @@ RunService.RenderStepped:Connect(function()
                     Objects.Box.Visible = false
                 end
 
-                -- TRACER (FF STYLE: Từ trên đỉnh màn hình xuống chân)
                 if Settings.Show_Tracer then
-                    -- Điểm xuất phát: Trên cùng màn hình (vị trí X của người chơi)
-                    Objects.Tracer.From = Vector2.new(rootPos.X, 0)
-                    -- Điểm kết thúc: Chân người chơi
+                    local myPos = camera:WorldToViewportPoint(lp.Character.HumanoidRootPart.Position)
+                    Objects.Tracer.From = Vector2.new(myPos.X, myPos.Y)
                     Objects.Tracer.To = Vector2.new(rootPos.X, rootPos.Y)
                     Objects.Tracer.Color = Settings.Tracer_Color
+                    Objects.Tracer.Thickness = 1.5
                     Objects.Tracer.Visible = true
                 else
                     Objects.Tracer.Visible = false
                 end
 
-                -- NAME
                 if Settings.Show_Name then
                     Objects.Name.Size = 13
                     Objects.Name.Position = Vector2.new(rootPos.X - Objects.Name.TextBounds.X / 2, headPos.Y - 25)
@@ -528,69 +322,66 @@ RunService.RenderStepped:Connect(function()
                     Objects.Name.Visible = false
                 end
 
-                -- HEALTH
                 if Settings.Show_Health and humanoid then
                     Objects.Health.Size = 12
                     Objects.Health.Position = Vector2.new(rootPos.X - Objects.Health.TextBounds.X / 2, rootPos.Y)
                     Objects.Health.Text = "HP: " .. math.floor(humanoid.Health)
-                    Objects.Health.Color = humanoid.Health > 25 and Settings.Health_Color or Color3.fromRGB(255, 0, 0)
+                    Objects.Health.Color = humanoid.Health > 25 and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
                     Objects.Health.Visible = true
                 else
                     Objects.Health.Visible = false
                 end
-
-                -- HEAD
-                if Settings.Show_Head then
-                    Objects.Head.Radius = 5
-                    Objects.Head.Position = Vector2.new(headPos.X, headPos.Y)
-                    Objects.Head.Color = Settings.Head_Color
-                    Objects.Head.Filled = true
-                    Objects.Head.Visible = true
-                else
-                    Objects.Head.Visible = false
-                end
-                        else
-                -- FIX LỖI LAG: Khi player ra khỏi màn hình, Ẩn ngay lập tức tất cả
+            else
                 Objects.Box.Visible = false
                 Objects.Tracer.Visible = false
                 Objects.Name.Visible = false
                 Objects.Health.Visible = false
-                Objects.Head.Visible = false
             end
         else
-            -- Khi player chết hoặc ESP tắt, Ẩn ngay lập tức
             Objects.Box.Visible = false
             Objects.Tracer.Visible = false
             Objects.Name.Visible = false
             Objects.Health.Visible = false
-            Objects.Head.Visible = false
         end
     end
 end)
 
--- Phím K để bật/tắt nhanh
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if input.KeyCode == Enum.KeyCode.K then
-        Settings.ESP_Enabled = not Settings.ESP_Enabled
+-- =========================================
+-- KÉO THẢ UI VÀ ĐÓNG MỞ
+-- =========================================
+local dragging = false
+local dragInput, mousePos, framePos
+
+TitleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        mousePos = input.Position
+        framePos = MainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+        end)
     end
 end)
 
--- Thông báo load
-local Notification = Instance.new("TextLabel")
-Notification.Size = UDim2.new(0, 250, 0, 40)
-Notification.Position = UDim2.new(0.5, -125, 0.05, 0)
-Notification.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
-Notification.Text = "Loaded: BAODZ ESP V3"
-Notification.TextColor3 = Color3.fromRGB(255, 255, 255)
-Notification.Font = Enum.Font.Gotham
-Notification.TextSize = 14
-Notification.Parent = ScreenGui
+TitleBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
 
-local NotifCorner = Instance.new("UICorner")
-NotifCorner.CornerRadius = UDim.new(0, 10)
-NotifCorner.Parent = Notification
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - mousePos
+        MainFrame.Position = UDim2.new(framePos.X.Scale, framePos.X.Offset + delta.X, framePos.Y.Scale, framePos.Y.Offset + delta.Y)
+    end
+end)
 
-task.delay(3, function()
-    Notification:Destroy()
+MinimizeBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+    RestoreBtn.Visible = true
+end)
+
+RestoreBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = true
+    RestoreBtn.Visible = false
 end)
