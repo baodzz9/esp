@@ -1,5 +1,5 @@
 -- =========================================
--- ESP CŨ + FPS + HITBOX TỰ ĐỘNG (KHI ĐÁNH)
+-- ESP CŨ + FPS + HITBOX + AIM BODY
 -- =========================================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -20,8 +20,11 @@ local Settings = {
     Name_Color = Color3.fromRGB(255, 255, 255),
     
     -- Cài đặt Hitbox
-    HitBoxEnabled = false, -- Bật/Tắt chế độ
-    HitBoxSize = 4.0
+    HitBoxEnabled = false,
+    HitBoxSize = 4.0,
+    
+    -- Cài đặt Aim Body
+    AimBody = false
 }
 
 local ESP_Objects = {}
@@ -35,8 +38,8 @@ ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = CoreGui
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 220, 0, 320)
-MainFrame.Position = UDim2.new(0.5, -110, 0.5, -160)
+MainFrame.Size = UDim2.new(0, 220, 0, 360) -- Tăng chiều cao để chứa nút Aim
+MainFrame.Position = UDim2.new(0.5, -110, 0.5, -180)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
@@ -75,13 +78,45 @@ local RestoreBtn = Instance.new("TextButton")
 RestoreBtn.Size = UDim2.new(0, 40, 0, 40)
 RestoreBtn.Position = UDim2.new(0.5, -20, 0.5, -20)
 RestoreBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
-RestoreBtn.Text = "⌂"
+RestoreBtn.Text = "☠️"
 RestoreBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 RestoreBtn.Font = Enum.Font.GothamBold
 RestoreBtn.TextSize = 20
 RestoreBtn.Visible = false
 RestoreBtn.Parent = ScreenGui
 
+local RestoreCorner = Instance.new("UICorner")
+RestoreCorner.CornerRadius = UDim.new(0, 50)
+RestoreCorner.Parent = RestoreBtn
+
+-- Kéo thả nút tròn
+local restoreDragging = false
+local restoreDragInput, restoreMousePos, restoreFramePos
+RestoreBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        restoreDragging = true
+        restoreMousePos = input.Position
+        restoreFramePos = RestoreBtn.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then restoreDragging = false end
+        end)
+    end
+end)
+RestoreBtn.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        restoreDragInput = input
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if input == restoreDragInput and restoreDragging then
+        local delta = input.Position - restoreMousePos
+        RestoreBtn.Position = UDim2.new(restoreFramePos.X.Scale, restoreFramePos.X.Offset + delta.X, restoreFramePos.Y.Scale, restoreFramePos.Y.Offset + delta.Y)
+    end
+end)
+
+-- =========================================
+-- NÚT BẬT TẮT ESP
+-- =========================================
 local function createToggle(parent, text, settingTable, key, yPos)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, -20, 0, 25)
@@ -111,6 +146,63 @@ createToggle(MainFrame, "Tên", Settings, "Show_Name", 150)
 createToggle(MainFrame, "Máu", Settings, "Show_Health", 185)
 
 -- =========================================
+-- NÚT BẬT TẮT HITBOX
+-- =========================================
+local HitboxToggleBtn = Instance.new("TextButton")
+HitboxToggleBtn.Size = UDim2.new(1, -20, 0, 25)
+HitboxToggleBtn.Position = UDim2.new(0, 10, 0, 220)
+HitboxToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+HitboxToggleBtn.Text = "Hitbox Tự Động [OFF]"
+HitboxToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+HitboxToggleBtn.Font = Enum.Font.Gotham
+HitboxToggleBtn.TextSize = 13
+HitboxToggleBtn.Parent = MainFrame
+
+local HitboxCorner = Instance.new("UICorner")
+HitboxCorner.CornerRadius = UDim.new(0, 6)
+HitboxCorner.Parent = HitboxToggleBtn
+
+HitboxToggleBtn.MouseButton1Click:Connect(function()
+    Settings.HitBoxEnabled = not Settings.HitBoxEnabled
+    if Settings.HitBoxEnabled then
+        HitboxToggleBtn.Text = "Hitbox Tự Động [ON]"
+        HitboxToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+    else
+        HitboxToggleBtn.Text = "Hitbox Tự Động [OFF]"
+        HitboxToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+        RestoreAll()
+    end
+end)
+
+-- =========================================
+-- NÚT BẬT TẮT AIM BODY (NGẮM THÂN ĐỊCH)
+-- =========================================
+local AimBodyBtn = Instance.new("TextButton")
+AimBodyBtn.Size = UDim2.new(1, -20, 0, 25)
+AimBodyBtn.Position = UDim2.new(0, 10, 0, 255)
+AimBodyBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+AimBodyBtn.Text = "Aim Body [OFF]"
+AimBodyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+AimBodyBtn.Font = Enum.Font.Gotham
+AimBodyBtn.TextSize = 13
+AimBodyBtn.Parent = MainFrame
+
+local AimCorner = Instance.new("UICorner")
+AimCorner.CornerRadius = UDim.new(0, 6)
+AimCorner.Parent = AimBodyBtn
+
+AimBodyBtn.MouseButton1Click:Connect(function()
+    Settings.AimBody = not Settings.AimBody
+    if Settings.AimBody then
+        AimBodyBtn.Text = "Aim Body [ON]"
+        AimBodyBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+    else
+        AimBodyBtn.Text = "Aim Body [OFF]"
+        AimBodyBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    end
+end)
+
+-- =========================================
 -- FPS Ở GÓC MÀN HÌNH
 -- =========================================
 local FPSFrame = Instance.new("Frame")
@@ -118,7 +210,6 @@ FPSFrame.Size = UDim2.new(0, 80, 0, 25)
 FPSFrame.Position = UDim2.new(1, -90, 0, 10)
 FPSFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 FPSFrame.BackgroundTransparency = 0.4
-FPSFrame.BorderSizePixel = 0
 FPSFrame.Parent = ScreenGui
 
 local FPSLabel = Instance.new("TextLabel")
@@ -145,15 +236,14 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- =========================================
--- LOGIC HITBOX TỰ ĐỘNG (KHI ĐÁNH - NHẢ TAY - THU)
+-- LOGIC HITBOX (CHẠM LÀ TO, NHẢ LÀ THƯỜNG)
 -- =========================================
-local priorityParts = { "Head", "HumanoidRootPart", "UpperTorso", "Torso", "LowerTorso" }
+local priorityParts = { "Head", "HumanoidRootPart", "UpperTorso", "Torso", "LowerTorso", "RootPart", "Body" }
 local originalSizes = {}
-local isAttacking = false -- Cờ kiểm tra đang đánh
 
 local function saveOriginalSizes(model)
     for _, part in ipairs(model:GetDescendants()) do
-        if part:IsA("BasePart") then
+        if part:IsA("BasePart") and not originalSizes[part] then
             originalSizes[part] = part.Size
         end
     end
@@ -178,12 +268,10 @@ local function restoreParts(model)
 end
 
 local function ExpandAll()
-    if not Settings.HitBoxEnabled or isAttacking then
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= lp and plr.Character then
-                saveOriginalSizes(plr.Character)
-                expandParts(plr.Character)
-            end
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= lp and plr.Character then
+            saveOriginalSizes(plr.Character)
+            expandParts(plr.Character)
         end
     end
 end
@@ -196,50 +284,57 @@ local function RestoreAll()
     end
 end
 
--- Nút bật/tắt Hitbox Tự động trong menu
-local HitboxToggleBtn = Instance.new("TextButton")
-HitboxToggleBtn.Size = UDim2.new(1, -20, 0, 25)
-HitboxToggleBtn.Position = UDim2.new(0, 10, 0, 220)
-HitboxToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-HitboxToggleBtn.Text = "Hitbox Tự Động [OFF]"
-HitboxToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-HitboxToggleBtn.Font = Enum.Font.Gotham
-HitboxToggleBtn.TextSize = 13
-HitboxToggleBtn.Parent = MainFrame
-
-local HitboxCorner = Instance.new("UICorner")
-HitboxCorner.CornerRadius = UDim.new(0, 6)
-HitboxCorner.Parent = HitboxToggleBtn
-
-HitboxToggleBtn.MouseButton1Click:Connect(function()
-    Settings.HitBoxEnabled = not Settings.HitBoxEnabled
-    if Settings.HitBoxEnabled then
-        HitboxToggleBtn.Text = "Hitbox Tự Động [ON]"
-        HitboxToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-    else
-        HitboxToggleBtn.Text = "Hitbox Tự Động [OFF]"
-        HitboxToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-        RestoreAll() -- Tắt thì khôi phục ngay
+local isTouching = false
+UserInputService.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isTouching = true
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isTouching = false
     end
 end)
 
--- Khi bắt đầu "Đánh" (Bấm chuột / chạm màn hình)
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if Settings.HitBoxEnabled then
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            isAttacking = true
-            ExpandAll()
+-- =========================================
+-- LOGIC AIM BODY (NGẮM THÂN ĐỊCH)
+-- =========================================
+local function GetClosestEnemy()
+    local closest = nil
+    local shortestDistance = math.huge
+    local myPos = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") and lp.Character.HumanoidRootPart.Position
+    
+    if not myPos then return nil end
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= lp and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local enemyPos = plr.Character.HumanoidRootPart.Position
+            local dist = (myPos - enemyPos).Magnitude
+            if dist < shortestDistance then
+                shortestDistance = dist
+                closest = plr
+            end
         end
     end
-end)
+    return closest
+end
 
--- Khi nhả tay (Ngừng đánh) -> Tự động khôi phục
-UserInputService.InputEnded:Connect(function(input)
+RunService.RenderStepped:Connect(function()
     if Settings.HitBoxEnabled then
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            isAttacking = false
+        if isTouching then
+            ExpandAll()
+        else
             RestoreAll()
+        end
+    end
+
+    if Settings.AimBody and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+        local target = GetClosestEnemy()
+        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            -- Xoay nhân vật hướng vào thân (HumanoidRootPart) của địch
+            local myRoot = lp.Character.HumanoidRootPart
+            local targetPos = target.Character.HumanoidRootPart.Position
+            myRoot.CFrame = CFrame.new(myRoot.Position, Vector3.new(targetPos.X, myRoot.Position.Y, targetPos.Z))
         end
     end
 end)
